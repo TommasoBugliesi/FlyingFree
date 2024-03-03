@@ -92,14 +92,31 @@ typedef enum {
 class LIS3MDL {
   private:
     SPIClass *spi; // Reference to SPI object
-    const SPISettings spiSettings = SPISettings(1000*1000, MSBFIRST, SPI_MODE0);
     const int LIS3MDL_CS_PIN      = 5;
+    const int LIS3MDL_SPI_SPEED   = 1000*1000;
     uint8_t register_value        = 0x00;
-    uint8_t status_register       = 0x00;
+    uint8_t status_register[1]    = {0x00};
     uint8_t data_raw[6];
-    uint16_t data[3];
+    int16_t data[3];
 
     // Add private methods here
+    /**
+     * @brief Read registers. 
+     * 
+     * @param reg: Register to be read.
+     * @param buffer: pointer to array.
+     * @param length: size of array, default value is 1.
+     */
+    void readRegisters(uint8_t reg, uint8_t *buffer, size_t length=1);
+
+    /**
+     * @brief Write register.
+     * 
+     * @param reg: Register to be written.
+     * @param reg_value: Register value.
+     */
+    void writeRegister(uint8_t reg, uint8_t reg_value);
+
     /**
      * @brief Reset hardware.
      */

@@ -47,15 +47,17 @@ void setup() {
 
   // Initialize VSPI using specific pins
   vspi->begin();  // CLK, MISO, MOSI, CS for VSPI
-  lis3mdl.begin();
 
-  lis3mdl.readWhoAmI();
+  // Init sensors with default configuration 
+  // lis3mdl.begin();
+  bmi323.begin();
+
+  // Read WHI registers
+  // lis3mdl.readWhoAmI();
+  // bmi323.readWhoAmI();
 }
 
-void loop() {  
-  // Read WHO_AM_I register
-  // lis3mdl.readData();
-  lis3mdl.readWhoAmI();
-  bmi323.read_who_am_i();
-  delay(1000);
+void loop() { 
+  bmi323.readData();
+  delay(50);
 }
