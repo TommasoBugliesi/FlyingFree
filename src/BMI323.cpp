@@ -5,6 +5,7 @@
 */
 
 #include "BMI323.h"
+#include "Global.h"
 
 BMI323::BMI323(SPIClass* _spi) : spi(_spi) {
     pinMode(BMI323_CS_PIN, OUTPUT);
@@ -148,7 +149,7 @@ void BMI323::readStatusReg(){
 
 void BMI323::readErrorReg(){
   BMI323::readRegisters(BMI323_REG_ERR_REG, status_register);
-  Serial.print("Read Register Error: ");  
+  Serial.print("Read Register BMI323 Error: ");  
   Serial.println(status_register[0], DEC); 
 }
 
@@ -163,9 +164,11 @@ void BMI323::begin(){
   BMI323::writeAccConfig(); // Write accelerometer configuration
   BMI323::writeGyrConfig(); // Write gyro configuration
 
+  // Read configuration from the device
   BMI323::readAccConfig();
   BMI323::readGyrConfig();
 
+  // Perform calibration of offsets
   BMI323::calibrateAcc();
   BMI323::calibrateGyr();
 }
@@ -186,6 +189,10 @@ void BMI323::readData(){
   if ((status_register[0] & 0x80) | (status_register[0] & 0x40)){
     BMI323::readDataRaw();
 
+    // Update global pointer
+    memcpy(globalStructPtr->bmi323Data.accDataPrv, data, 3 * sizeof(float)); // Copy first 3 elements
+    memcpy(globalStructPtr->bmi323Data.gyroDataPrv, data + 3, 3 * sizeof(float)); // Copy last 3 elements
+
     if (status_register[0] & 0x80){
       for (size_t i=0; i<3; i++){
         data[i] = (float)data_raw[i]*acc_gain + acc_offset[i]; // output is m/s^2
@@ -196,9 +203,14 @@ void BMI323::readData(){
         data[ii] = (float)data_raw[ii]*gyro_gain + gyro_offset[ii-3]; // output is rad/s
       }
     }
+
+    // Update global pointer
+    memcpy(globalStructPtr->bmi323Data.accData, data, 3 * sizeof(float)); // Copy first 3 elements
+    memcpy(globalStructPtr->bmi323Data.gyroData, data + 3, 3 * sizeof(float)); // Copy last 3 elements
+
   }
   // Serial.printf("%f,%f,%f\n",data[0],data[1],data[2]);
-  Serial.printf("%f,%f,%f\n",data[3],data[4],data[5]);
+
 }
 
 void BMI323::calibrateAcc(){
