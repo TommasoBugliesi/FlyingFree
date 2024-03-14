@@ -25,6 +25,33 @@
 #define MAX_UINT16 4095
 #define MIN_UINT16 0
 
+enum class DSHOT_CMD : uint16_t
+{
+	MOTOR_STOP,						// Currently not implemented
+	BEEP1,							// Wait at least length of beep (260ms) before next command
+	BEEP2,							// Wait at least length of beep (260ms) before next command
+	BEEP3,							// Wait at least length of beep (280ms) before next command
+	BEEP4,							// Wait at least length of beep (280ms) before next command
+	BEEP5,							// Wait at least length of beep (1020ms) before next command
+	ESC_INFO,						// Wait at least 12ms before next command
+	SPIN_DIRECTION_1,				// Need 6x, no wait required
+	SPIN_DIRECTION_2,				// Need 6x, no wait required
+	MODE_3D_OFF,					// Need 6x, no wait required
+	MODE_3D_ON,						// Need 6x, no wait required
+	SETTINGS_REQUEST,				// Currently not implemented
+	SAVE_SETTINGS,					// Need 6x, wait at least 35ms before next command
+	SPIN_DIRECTION_NORMAL = 20,		// Need 6x, no wait required
+	SPIN_DIRECTION_REVERSED,		// Need 6x, no wait required
+	LED0_ON,						// No wait required
+	LED1_ON,						// No wait required
+	LED2_ON,						// No wait required
+	LED3_ON,						// No wait required
+	LED0_OFF,						// No wait required
+	LED1_OFF,						// No wait required
+	LED2_OFF,						// No wait required
+	LED3_OFF,						// No wait required
+};
+
 class MotorControl {
   GPIOStruct remoteData;
 
@@ -50,6 +77,12 @@ class MotorControl {
     uint8_t divider;
     uint16_t throttle[4];
 
+    // Flags section 
+    bool B_resetMotors = 0;                 // 0 motor will not enter power up, 1 normal operation
+    bool B_resetThrottle = 0;               // Always reset throttle at start up to DSHOT_THROTTLE_MIN
+    bool B_lowThrottle = 0;                 // Power up only if all ESC throttle is DSHOT_THROTTLE_MIN
+    uint16_t U_armCounter = 0;              // Counter for ESC power up
+
     // Add private variables and methods here
     void updateData();
 
@@ -63,6 +96,7 @@ class MotorControl {
     uint8_t DShotChecksum(uint16_t data);
     esp_err_t DShotWritePacket(dshot_packet_t *packet, bool wait);
     esp_err_t DShotRepeatPacket(dshot_packet_t *packet, int n);
+    esp_err_t DShotSetReversed(bool reversed);
     // void resetRemoteData();
 };
 

@@ -36,8 +36,8 @@
 #include "Global.h"
 #include "MotorControl.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+// #include "freertos/FreeRTOS.h"
+// #include "freertos/task.h"
 
 
 // Declare pointers to SPIClass objects
@@ -50,13 +50,15 @@ BMI323 bmi323(hspi);
 AHRS ahrs;
 ESPNOWSender espnow;
 
-// Task handles
-TaskHandle_t task1_Handle;
-TaskHandle_t task2_Handle;
-void task1(void *parameter);
-void task2(void *parameter);
-unsigned long task1StartTime, task1EndTime;
-unsigned long task2StartTime, task2EndTime;
+// // Task handles
+// TaskHandle_t task1_Handle;
+// TaskHandle_t task2_Handle;
+// void task1(void *parameter);
+// void task2(void *parameter);
+// unsigned long task1StartTime, task1EndTime;
+// unsigned long task2StartTime, task2EndTime;
+
+unsigned long StartTime, EndTime;
 
 MotorControl motor;
 
@@ -87,97 +89,110 @@ void setup() {
 
   motor.begin();
 
-  // Create Task 1 on core 1
-  xTaskCreatePinnedToCore(task1,     // Task function
-                          "Task 1",  // Task name
-                          2000*20,      // Stack size (words)
-                          NULL,      // Task parameters
-                          1,         // Priority (0 is the lowest)
-                          &task1_Handle, // Task handle
-                          0);        // Core 1
+  // // Create Task 1 on core 1
+  // xTaskCreatePinnedToCore(task1,     // Task function
+  //                         "Task 1",  // Task name
+  //                         2000*20,      // Stack size (words)
+  //                         NULL,      // Task parameters
+  //                         1,         // Priority (0 is the lowest)
+  //                         &task1_Handle, // Task handle
+  //                         0);        // Core 1
 
-  // Create Task 2 on core 2
-  xTaskCreatePinnedToCore(task2,     // Task function
-                          "Task 2",  // Task name
-                          2000*20,      // Stack size (words)
-                          NULL,      // Task parameters
-                          1,         // Priority (0 is the lowest)
-                          &task2_Handle, // Task handle
-                          1);        // Core 2
+  // // Create Task 2 on core 2
+  // xTaskCreatePinnedToCore(task2,     // Task function
+  //                         "Task 2",  // Task name
+  //                         2000*20,      // Stack size (words)
+  //                         NULL,      // Task parameters
+  //                         1,         // Priority (0 is the lowest)
+  //                         &task2_Handle, // Task handle
+  //                         1);        // Core 2
 
 }
 
 void loop() { 
+  StartTime = micros();
+
+  bmi323.readData();
+  ahrs.computeKalman();
+  // printf("%f,%f\n",globalStructPtr->ahrsData.angData[0], globalStructPtr->ahrsData.angData[1]);
+  motor.motorControl();
+
+  EndTime = micros();
+
+  globalStructPtr-> task1Timing = (float)(EndTime-StartTime);
+  globalStructPtr-> task1Frequency = 1000000./globalStructPtr-> task1Timing;
+
+  printf("Task1 operations time %f: \n", globalStructPtr-> task1Timing);
 }
 
-// Task 1 function running at 4kHz
-void task1(void *parameter) {  
-  TickType_t lastWakeTime_T1 = xTaskGetTickCount();
-  const TickType_t frequency_T1 = 10; // ( xTimeInMs * configTICK_RATE_HZ ) / 1000 
+// // Task 1 function running at 4kHz
+// void task1(void *parameter) {  
+//   TickType_t lastWakeTime_T1 = xTaskGetTickCount();
+//   const TickType_t frequency_T1 = 10; // ( xTimeInMs * configTICK_RATE_HZ ) / 1000 
 
-  while (1) {
-    // Record the start time
-    task1StartTime = micros();
+//   while (1) {
+//     // Record the start time
+//     task1StartTime = micros();
 
-    /*
-    Start of task1 Logic
-    */
+//     /*
+//     Start of task1 Logic
+//     */
 
-    // bmi323.readData();
-    // ahrs.computeKalman();
-    // printf("%f,%f\n",globalStructPtr->ahrsData.angData[0], globalStructPtr->ahrsData.angData[1]);
+//     // bmi323.readData();
+//     // ahrs.computeKalman();
+//     // printf("%f,%f\n",globalStructPtr->ahrsData.angData[0], globalStructPtr->ahrsData.angData[1]);
 
-    /*
-    End of task1 Logic
-    */
+//     /*
+//     End of task1 Logic
+//     */
 
-    // Record the end time
-    task1EndTime = micros();
-    globalStructPtr-> task1Timing = (float)(task1EndTime-task1StartTime);
-    globalStructPtr-> task1Frequency = 1000000./globalStructPtr-> task1Timing;
+//     // Record the end time
+//     task1EndTime = micros();
+//     globalStructPtr-> task1Timing = (float)(task1EndTime-task1StartTime);
+//     globalStructPtr-> task1Frequency = 1000000./globalStructPtr-> task1Timing;
 
-    // printf("Task1 operations time %f: \n", globalStructPtr-> task1Timing);
+//     // printf("Task1 operations time %f: \n", globalStructPtr-> task1Timing);
 
-    if (globalStructPtr-> task1Timing > 1000){ 
-      printf("WARNING: task1 Overflow, elapsed time is: %f [us] \n", globalStructPtr-> task2Timing);
-    }
+//     if (globalStructPtr-> task1Timing > 1000){ 
+//       printf("WARNING: task1 Overflow, elapsed time is: %f [us] \n", globalStructPtr-> task2Timing);
+//     }
 
-    // Delay to achieve the desired frequency
-    vTaskDelayUntil(&lastWakeTime_T1, frequency_T1);
-  }
-}
+//     // Delay to achieve the desired frequency
+//     vTaskDelayUntil(&lastWakeTime_T1, frequency_T1);
+//   }
+// }
 
-// Task 2 function running at 20ms
-void task2(void *parameter) {
-  TickType_t lastWakeTime_T2 = xTaskGetTickCount();
-  const TickType_t frequency_T2 = 8; // ( xTimeInMs * configTICK_RATE_HZ ) / 1000 
-  int counter = 0;
-  while (1) {
-    // Record the start time
-    task2StartTime = micros();
+// // Task 2 function running at 20ms
+// void task2(void *parameter) {
+//   TickType_t lastWakeTime_T2 = xTaskGetTickCount();
+//   const TickType_t frequency_T2 = 8; // ( xTimeInMs * configTICK_RATE_HZ ) / 1000 
+//   int counter = 0;
+//   while (1) {
+//     // Record the start time
+//     task2StartTime = micros();
 
-    /*
-    Start of task1 Logic
-    */
+//     /*
+//     Start of task1 Logic
+//     */
     
-    motor.motorControl();
+//     motor.motorControl();
 
-    /*
-    End of task1 Logic
-    */
+//     /*
+//     End of task1 Logic
+//     */
 
-    // Record the end time
-    task2EndTime = micros();
-    globalStructPtr-> task2Timing = (float)(task2EndTime-task2StartTime);
-    globalStructPtr-> task2Frequency = 1000000./globalStructPtr-> task2Timing;
+//     // Record the end time
+//     task2EndTime = micros();
+//     globalStructPtr-> task2Timing = (float)(task2EndTime-task2StartTime);
+//     globalStructPtr-> task2Frequency = 1000000./globalStructPtr-> task2Timing;
 
-    printf("Task2 operations time %f: \n", globalStructPtr-> task2Timing);
+//     // printf("Task2 operations time %f: \n", globalStructPtr-> task2Timing);
 
-    if (globalStructPtr-> task2Timing > 9000){ 
-      printf("WARNING: task2 Overflow, elapsed time is: %f [us] \n", globalStructPtr-> task2Timing);
-    }
+//     if (globalStructPtr-> task2Timing > 9000){ 
+//       printf("WARNING: task2 Overflow, elapsed time is: %f [us] \n", globalStructPtr-> task2Timing);
+//     }
 
-    // Delay to achieve the desired frequency
-    vTaskDelayUntil(&lastWakeTime_T2, frequency_T2);
-  }
-}
+//     // Delay to achieve the desired frequency
+//     vTaskDelayUntil(&lastWakeTime_T2, frequency_T2);
+//   }
+// }
