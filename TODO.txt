@@ -1,0 +1,1 @@
+Disaccoppiare la frequenza di aggiornamento delle MPU e dei motori. -> Motori 100Hz, accelerometri 1000Hz. Introdurre un filtraggio sia lato motori che lato accelerometri

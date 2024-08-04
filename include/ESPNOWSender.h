@@ -17,7 +17,8 @@
 
 enum msgHead {
   ESPNOW_DATA_00,
-  ESPNOW_DATA_01
+  ESPNOW_DATA_01,
+  ESPNOW_DATA_02
 };
 
 class ESPNOWSender {

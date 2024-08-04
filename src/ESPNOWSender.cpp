@@ -7,7 +7,6 @@
 #include "ESPNOWSender.h"
 #include "WiFi.h"
 
-
 // Init static member outside the class
 bool ESPNOWSender::ledState = false;
 
@@ -31,9 +30,9 @@ void ESPNOWSender::sendData(uint8_t dataType, const uint8_t *data, int dataLen) 
   // Send data
   esp_err_t result = esp_now_send(broadcastAddress, packet, dataLen + 1);
   if (result == ESP_OK) {
-    Serial.println("Data sent successfully");
+    // Serial.println("Data sent successfully");
   } else {
-    Serial.println("Error sending data");
+    // Serial.println("Error sending data");
   }
 }
 
@@ -45,7 +44,7 @@ void ESPNOWSender::receiveCallback(const uint8_t *macAddr, const uint8_t *data, 
   switch(dataType) {
     case ESPNOW_DATA_00:
       // Data type 1 handling logic
-      Serial.println("Received data type 1:");
+      Serial.println("Received data type 0:");
 
       break;
     case ESPNOW_DATA_01:
@@ -70,7 +69,15 @@ void ESPNOWSender::receiveCallback(const uint8_t *macAddr, const uint8_t *data, 
       // printf("J2Y: %d, ",globalStructPtr->gpioData.J2y_In);
       // printf("J1X: %d, ",globalStructPtr->gpioData.J1x_In);
       // printf("J1Y: %d\n",globalStructPtr->gpioData.J1y_In);
-      
+      break;
+    case ESPNOW_DATA_02:
+      // Data type 2 handling logic
+      if (xSemaphoreTake(globalMutex, portMAX_DELAY) == pdTRUE) {
+        memcpy(&(globalStructPtr->motorData), data + 1, sizeof(MotorStruct));
+        xSemaphoreGive(globalMutex);
+      }
+      // printf("Kp_Roll: %f, Ki_Roll: %f, Kd_roll: %f\n", globalStructPtr->motorData.KpRoll, globalStructPtr->motorData.KiRoll, globalStructPtr->motorData.KdRoll);
+      // printf("Kp_Pitch: %f, Ki_Pitch: %f, Kd_Pitch: %f\n", globalStructPtr->motorData.KpPitch, globalStructPtr->motorData.KiPitch, globalStructPtr->motorData.KdPitch);
       break;
     default:
       // Unknown data type

@@ -2,6 +2,17 @@
   MotorControl.h - Library for Description
   Created by TommasoBugliesi, 11/03/2024.
   Brief description: Library to control motors depending on user inputs.
+  
+  Reference system body frame drone 
+                     ^ X
+                     |
+                     |
+                     |
+                 11° | °12
+                    \|/
+        <----------- o Z
+        Y           / \
+                 21°   °22
 */
 
 #ifndef MotorControl_h
@@ -27,33 +38,71 @@
 
 enum class DSHOT_CMD : uint16_t
 {
-	MOTOR_STOP,						// Currently not implemented
-	BEEP1,							// Wait at least length of beep (260ms) before next command
-	BEEP2,							// Wait at least length of beep (260ms) before next command
-	BEEP3,							// Wait at least length of beep (280ms) before next command
-	BEEP4,							// Wait at least length of beep (280ms) before next command
-	BEEP5,							// Wait at least length of beep (1020ms) before next command
-	ESC_INFO,						// Wait at least 12ms before next command
-	SPIN_DIRECTION_1,				// Need 6x, no wait required
-	SPIN_DIRECTION_2,				// Need 6x, no wait required
-	MODE_3D_OFF,					// Need 6x, no wait required
-	MODE_3D_ON,						// Need 6x, no wait required
-	SETTINGS_REQUEST,				// Currently not implemented
-	SAVE_SETTINGS,					// Need 6x, wait at least 35ms before next command
+	MOTOR_STOP,						        // Currently not implemented
+	BEEP1,							          // Wait at least length of beep (260ms) before next command
+	BEEP2,							          // Wait at least length of beep (260ms) before next command
+	BEEP3,							          // Wait at least length of beep (280ms) before next command
+	BEEP4,							          // Wait at least length of beep (280ms) before next command
+	BEEP5,							          // Wait at least length of beep (1020ms) before next command
+	ESC_INFO,						          // Wait at least 12ms before next command
+	SPIN_DIRECTION_1,				      // Need 6x, no wait required
+	SPIN_DIRECTION_2,				      // Need 6x, no wait required
+	MODE_3D_OFF,					        // Need 6x, no wait required
+	MODE_3D_ON,						        // Need 6x, no wait required
+	SETTINGS_REQUEST,				      // Currently not implemented
+	SAVE_SETTINGS,					      // Need 6x, wait at least 35ms before next command
 	SPIN_DIRECTION_NORMAL = 20,		// Need 6x, no wait required
-	SPIN_DIRECTION_REVERSED,		// Need 6x, no wait required
-	LED0_ON,						// No wait required
-	LED1_ON,						// No wait required
-	LED2_ON,						// No wait required
-	LED3_ON,						// No wait required
-	LED0_OFF,						// No wait required
-	LED1_OFF,						// No wait required
-	LED2_OFF,						// No wait required
-	LED3_OFF,						// No wait required
+	SPIN_DIRECTION_REVERSED,		  // Need 6x, no wait required
+	LED0_ON,						          // No wait required
+	LED1_ON,						          // No wait required
+	LED2_ON,						          // No wait required
+	LED3_ON,						          // No wait required
+	LED0_OFF,						          // No wait required
+	LED1_OFF,						          // No wait required
+	LED2_OFF,						          // No wait required
+	LED3_OFF,						          // No wait required
+};
+
+struct RemoteCal {
+  float J1x;
+  float J1y;
+  float J2x;
+  float J2y;
 };
 
 class MotorControl {
   GPIOStruct remoteData;
+  RemoteCal remoteCal;
+
+  float _inAngles[3];   
+  float _inAnglesPrv[3];   
+
+  // PID 
+  float _KpPitch = 0.0;
+  float _KiPitch = 0.0;
+  float _KdPitch = 0.0;
+  float _KpRoll  = 0.0;
+  float _KiRoll  = 0.0;
+  float _KdRoll  = 0.0;
+
+  // Roll PID controller class internal variables
+  float _inRoll = 0.0;
+  float _outRoll = 0.0;
+  float _refRoll = 0.0;
+  float _inRollPrv = 0.0;
+  float _integRoll = 0.0;
+
+  // Pitch PID controller class internal variables
+  float _inPitch = 0.0;
+  float _outPitch = 0.0;
+  float _refPitch = 0.0;
+  float _inPitchPrv = 0.0;
+  float _integPitch = 0.0;
+
+  // Time variables
+  unsigned long _currentTime; 
+  unsigned long _lastTime; 
+  float _elapsedTime; 
 
   public:
     MotorControl(); // Constructor
@@ -76,6 +125,13 @@ class MotorControl {
     uint16_t dt_pause;
     uint8_t divider;
     uint16_t throttle[4];
+    float throttleNoSat[4];
+
+    // Throttle floating numbers [0,1]
+    float h = 0.0;
+    float r = 0.0;
+    float p = 0.0;
+    float y = 0.0;
 
     // Flags section 
     bool B_resetMotors = 0;                 // 0 motor will not enter power up, 1 normal operation
@@ -85,6 +141,9 @@ class MotorControl {
 
     // Add private variables and methods here
     void updateData();
+    void remoteCalibration();
+    void motorSaturation();
+    void PIDControl();
 
     /*DShot functions and protocol definition*/
     esp_err_t DShotInit(gpio_num_t *gpio, rmt_channel_t *rmtChannel, unsigned long frequency = 600000UL, uint8_t rmtdivider = 3);

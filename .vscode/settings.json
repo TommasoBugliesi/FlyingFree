@@ -1,5 +1,5 @@
 {
-    "idf.portWin": "COM4",
+    "idf.portWin": "COM5",
     "files.associations": {
         "new": "cpp",
         "array": "cpp",
@@ -11,5 +11,6 @@
         "vector": "cpp",
         "string_view": "cpp",
         "initializer_list": "cpp"
-    }
+    },
+    "idf.flashType": "UART"
 }

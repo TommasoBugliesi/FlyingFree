@@ -95,11 +95,17 @@ void AHRS::computeKalman(){
   X_22[3][0] = X_11[3][0]+X_21[3][0];
 
   // Update global pointer
-  memcpy(globalStructPtr->ahrsData.angDataPrv, angOut, sizeof(angOut)); // Copy first 3 elements
+  globalStructPtr->ahrsData.angDataPrv[0] = -angOut[1];
+  globalStructPtr->ahrsData.angDataPrv[1] = angOut[0];
+  globalStructPtr->ahrsData.angDataPrv[2] = angOut[2];
 
+  // Define new angle for the next iteration
   angOut[0] = X_22[0][0];
   angOut[1] = X_22[1][0];
   angOut[2] = 0.;
 
-  memcpy(globalStructPtr->ahrsData.angData, angOut, sizeof(angOut)); // Copy first 3 elements
+  // Convert sensor frame to drone frame 
+  globalStructPtr->ahrsData.angData[0] = -angOut[1];
+  globalStructPtr->ahrsData.angData[1] = angOut[0];
+  globalStructPtr->ahrsData.angData[2] = angOut[2];
 }

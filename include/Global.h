@@ -41,10 +41,20 @@ struct GPIOStruct {
   uint16_t P2_In;
 };
 
+struct MotorStruct {
+  float KpRoll;
+  float KiRoll;
+  float KdRoll;
+  float KpPitch;
+  float KiPitch;
+  float KdPitch;
+};
+
 struct GlobalStruct {
     BMI323Struct bmi323Data;
     AHRSStruct   ahrsData;
     GPIOStruct   gpioData;
+    MotorStruct  motorData;
     float task1Frequency;
     float task2Frequency; 
     float task1Timing;  // us
