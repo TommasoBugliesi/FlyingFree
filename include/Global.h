@@ -12,9 +12,7 @@
 
 struct BMI323Struct {
   float gyroData[3];
-  float gyroDataPrv[3];
   float accData[3];
-  float accDataPrv[3];
 };
 
 struct AHRSStruct {
@@ -52,13 +50,14 @@ struct MotorStruct {
 
 struct GlobalStruct {
     BMI323Struct bmi323Data;
+    BMI323Struct bmi323DataPrv;
+    BMI323Struct bmi323Data_lp1st;
     AHRSStruct   ahrsData;
+    AHRSStruct   ahrsDataFilt;
     GPIOStruct   gpioData;
     MotorStruct  motorData;
     float task1Frequency;
-    float task2Frequency; 
     float task1Timing;  // us
-    float task2Timing;  // us
 };
 
 // Declare the global pointer to GlobalData

@@ -34,6 +34,7 @@
 #define DSHOT_THROTTLE_MIN 48
 #define DSHOT_THROTTLE_MAX 2047
 #define MAX_UINT16 4095
+#define HALF_MAX_UINT16 2048
 #define MIN_UINT16 0
 
 enum class DSHOT_CMD : uint16_t
@@ -63,21 +64,14 @@ enum class DSHOT_CMD : uint16_t
 	LED3_OFF,						          // No wait required
 };
 
-struct RemoteCal {
-  float J1x;
-  float J1y;
-  float J2x;
-  float J2y;
-};
-
 class MotorControl {
   GPIOStruct remoteData;
-  RemoteCal remoteCal;
 
   float _inAngles[3];   
   float _inAnglesPrv[3];   
 
   // PID 
+  bool _pidFirst = true;
   float _KpPitch = 0.0;
   float _KiPitch = 0.0;
   float _KdPitch = 0.0;
@@ -98,6 +92,9 @@ class MotorControl {
   float _refPitch = 0.0;
   float _inPitchPrv = 0.0;
   float _integPitch = 0.0;
+
+  // Motor control filter
+  float _lowPasConst = 0.3;
 
   // Time variables
   unsigned long _currentTime; 
@@ -125,6 +122,7 @@ class MotorControl {
     uint16_t dt_pause;
     uint8_t divider;
     uint16_t throttle[4];
+    uint16_t throttlePrv[4];
     float throttleNoSat[4];
 
     // Throttle floating numbers [0,1]
@@ -141,9 +139,8 @@ class MotorControl {
 
     // Add private variables and methods here
     void updateData();
-    void remoteCalibration();
     void motorSaturation();
-    void PIDControl();
+    void motorFiltering();
 
     /*DShot functions and protocol definition*/
     esp_err_t DShotInit(gpio_num_t *gpio, rmt_channel_t *rmtChannel, unsigned long frequency = 600000UL, uint8_t rmtdivider = 3);

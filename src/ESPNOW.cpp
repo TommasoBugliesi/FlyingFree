@@ -1,27 +1,27 @@
 /*
-  ESPNOWSender.cpp - Library for Description
+  ESPNOW.cpp - Library for Description
   Created by Tommaso Bugliesi, 10/03/2024.
   Brief description: A library to activate the ESPNOW protocol for duplex communication with another ESP32 board.
 */
 
-#include "ESPNOWSender.h"
+#include "ESPNOW.h"
 #include "WiFi.h"
 
 // Init static member outside the class
-bool ESPNOWSender::ledState = false;
+bool ESPNOW::ledState = false;
 
-ESPNOWSender::ESPNOWSender() {
+ESPNOW::ESPNOW() {
   pinMode(GPIO_LED, OUTPUT);
 }
 
-ESPNOWSender::~ESPNOWSender() {
+ESPNOW::~ESPNOW() {
   // Destructor implementation
 }
 
 // Add private method implementations here
 
 // Add public method implementations here
-void ESPNOWSender::sendData(uint8_t dataType, const uint8_t *data, int dataLen) {
+void ESPNOW::sendData(uint8_t dataType, const uint8_t *data, int dataLen) {
   // Create data packet with header
   uint8_t packet[dataLen + 1];
   packet[0] = dataType; // Header indicating data type
@@ -36,7 +36,7 @@ void ESPNOWSender::sendData(uint8_t dataType, const uint8_t *data, int dataLen) 
   }
 }
 
-void ESPNOWSender::receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataSize) {
+void ESPNOW::receiveCallback(const uint8_t *macAddr, const uint8_t *data, int dataSize) {
   // Extract data type from header
   uint8_t dataType = data[0]; 
   
@@ -85,10 +85,10 @@ void ESPNOWSender::receiveCallback(const uint8_t *macAddr, const uint8_t *data, 
   }
 
   toggleLEDState();
-  digitalWrite(GPIO_LED, ESPNOWSender::ledState);
+  digitalWrite(GPIO_LED, ESPNOW::ledState);
 }
 
-void ESPNOWSender::begin(){
+void ESPNOW::begin(){
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
 

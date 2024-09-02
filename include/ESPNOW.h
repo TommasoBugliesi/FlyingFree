@@ -1,11 +1,11 @@
 /*
-  ESPNOWSender.h - Library for Description
+  ESPNOW.h - Library for Description
   Created by Tommaso Bugliesi, 10/03/2024.
   Brief description: A library to activate the ESPNOW protocol for duplex communication with another ESP32 board.
 */
 
-#ifndef ESPNOWSender_h
-#define ESPNOWSender_h
+#ifndef ESPNOW_h
+#define ESPNOW_h
 
 #include <Arduino.h>
 #include <esp_now.h>
@@ -21,7 +21,7 @@ enum msgHead {
   ESPNOW_DATA_02
 };
 
-class ESPNOWSender {
+class ESPNOW {
   private:
     // Add private variables and methods here
     uint8_t broadcastAddress[6] = {0xD8, 0xBC, 0x38, 0x78, 0x24, 0x78}; // ESP32 Flight Controller 
@@ -32,8 +32,8 @@ class ESPNOWSender {
     static void toggleLEDState() {ledState = !ledState;}
 
   public:
-    ESPNOWSender(); // Constructor
-    ~ESPNOWSender(); // Destructor
+    ESPNOW(); // Constructor
+    ~ESPNOW(); // Destructor
 
     // Add public methods here
     void sendData(uint8_t header, const uint8_t *data, int dataLen);

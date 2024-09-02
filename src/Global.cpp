@@ -13,19 +13,35 @@ GlobalStruct* globalStructPtr = nullptr;
 SemaphoreHandle_t globalMutex;
 
 void initGlobal() {
-    if (!globalStructPtr) {
-        globalStructPtr = new GlobalStruct;
+  if (!globalStructPtr) {
+      globalStructPtr = new GlobalStruct;
 
-        // Initialize globalDataPtr if necessary
-        memset(globalStructPtr, 0, sizeof(globalStructPtr));
-    }
-
-  globalStructPtr->motorData.KpPitch = 0.001;
+      // Initialize globalDataPtr if necessary
+      memset(globalStructPtr, 0, sizeof(globalStructPtr));
+  }
+  globalStructPtr->motorData.KpPitch = 0.0;
   globalStructPtr->motorData.KiPitch = 0.0;
   globalStructPtr->motorData.KdPitch = 0.0;
-  globalStructPtr->motorData.KpRoll  = 0.001;
+  globalStructPtr->motorData.KpRoll  = 0.0;
   globalStructPtr->motorData.KiRoll  = 0.0;
   globalStructPtr->motorData.KdRoll  = 0.0;
+  
+  globalStructPtr->gpioData.T1_In = 0;
+  globalStructPtr->gpioData.T2_In = 0;
+  globalStructPtr->gpioData.T3_In = 0;
+  globalStructPtr->gpioData.T4_In = 0;
+  globalStructPtr->gpioData.B1_In = 0;
+  globalStructPtr->gpioData.B2_In = 0;
+  globalStructPtr->gpioData.Bx_In = 0;
+  globalStructPtr->gpioData.By_In = 0;
+  globalStructPtr->gpioData.Bz_In = 0;
+  globalStructPtr->gpioData.Bw_In = 0;
+  globalStructPtr->gpioData.J1x_In = 2048;
+  globalStructPtr->gpioData.J1y_In = 2048;
+  globalStructPtr->gpioData.J2x_In = 2048;
+  globalStructPtr->gpioData.J2y_In = 2048;
+  globalStructPtr->gpioData.P1_In = 0;
+  globalStructPtr->gpioData.P2_In = 0;
 }
 
 // // Function to update global data (thread-safe)

@@ -11,6 +11,7 @@
 
 #define AHRS_ROWS 4
 #define AHRS_COLS 4
+#define BUFFERSIZE 5
 
 class AHRS {
   private:
@@ -28,6 +29,9 @@ class AHRS {
     float angData[3];  // Angle in rad Roll and Pitch from sensors
     float angOut[3];   // Angle output in rad
     float dt;
+
+    int samples = 0;
+    float angDataFilt[3][BUFFERSIZE];
 
   public:
     AHRS(); // Constructor
@@ -76,6 +80,9 @@ class AHRS {
      * Note: Adjust matrices (Fₖ, Bₖ, Hₖ, Qₖ, Rₖ) based on the characteristics of the specific system being modeled.
      */
     void computeKalman();
+
+    // Perform a weighted average of the input angles to reduce angle deviation
+    void weightedAverageFilt();
 
   private:
     // Add private variables and methods here

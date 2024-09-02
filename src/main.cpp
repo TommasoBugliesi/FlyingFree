@@ -28,11 +28,14 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <SPI.h>
+#include <EEPROM.h>
+
+#include "Filters.h"
 
 #include "LIS3MDL.h"
 #include "BMI323.h"
 #include "AHRS.h"
-#include "ESPNOWSender.h"
+#include "ESPNOW.h"
 #include "Global.h"
 #include "MotorControl.h"
 
@@ -44,15 +47,15 @@ SPIClass *hspi = new SPIClass(HSPI);
 // LIS3MDL lis3mdl(vspi);
 BMI323 bmi323(hspi);
 AHRS ahrs;
-ESPNOWSender espnow;
+ESPNOW espnow;
 MotorControl motor;
 
-unsigned long StartTime, EndTime;
+unsigned long ahrsLast, ElapsedTime, motorLast;
 
 void setup() {
   // Initialize Serial communication
   Serial.begin(115200); 
-  delay(100);
+  delay(1000);
 
   // Create the mutex
   globalMutex = xSemaphoreCreateMutex();
@@ -73,23 +76,27 @@ void setup() {
   espnow.begin();
   bmi323.begin();
   motor.begin();
-  delay(100);
+
+  delay(1000);
 }
 
 void loop() { 
-  // StartTime = micros();
+  if ((micros()-ahrsLast)> 1000){
+    bmi323.readData();
+    lp_1st(globalStructPtr->bmi323Data.gyroData, 3, 20, ElapsedTime, globalStructPtr->bmi323Data_lp1st.gyroData);
+    ahrs.computeKalman();
+    ahrs.weightedAverageFilt();
 
-  bmi323.readData();
-  ahrs.computeKalman();
-  printf("%f %f\n",globalStructPtr->ahrsData.angData[0], globalStructPtr->ahrsData.angData[1]);
-  motor.motorControl();
+    ElapsedTime = micros() - ahrsLast;
+    ahrsLast = micros();
+    globalStructPtr-> task1Timing = (float)(ElapsedTime);
+    printf("Task1 operations time %f: \n", globalStructPtr-> task1Timing);
+  }
 
-  // EndTime = micros();
+  if ((micros()-motorLast)> 2500){
+    motor.motorControl();
+    motorLast = micros();
+  }
 
-  // globalStructPtr-> task1Timing = (float)(EndTime-StartTime);
-  // globalStructPtr-> task1Frequency = 1000000./globalStructPtr-> task1Timing;
-
-  // printf("Task1 operations time %f: \n", globalStructPtr-> task1Timing);
-  delay(1);
 }
 

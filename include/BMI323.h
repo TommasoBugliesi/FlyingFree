@@ -178,11 +178,19 @@ typedef enum {
     BMI323_GYRO_OPERATION_HIGH_PERFORMANCE = 0b111  ///< Enables the gyroscope in high performance mode
 } bmi323_gyro_operation_t;
 
+#define EEPROM_SIZE 24   // Define the size of EEPROM to allocate
+#define VALUE_ADDR_ACC_0 0      // Address where the value will be stored
+#define VALUE_ADDR_ACC_1 4      // Address where the value will be stored
+#define VALUE_ADDR_ACC_2 8      // Address where the value will be stored
+#define VALUE_ADDR_GYR_0 12     // Address where the value will be stored
+#define VALUE_ADDR_GYR_1 16     // Address where the value will be stored
+#define VALUE_ADDR_GYR_2 20     // Address where the value will be stored
+
 class BMI323 {
   private:
     SPIClass *spi; // Reference to SPI object
-    const int BMI323_CS_PIN = 15;
-    const int BMI323_SPI_SPEED   = 1000*1000;
+    const int BMI323_CS_PIN        = 15;
+    const int BMI323_SPI_SPEED     = 1000*1000;
     uint16_t register_value        = 0x00;
     uint16_t status_register[1]    = {0x00};
     uint8_t buffer_MSB;

@@ -3,6 +3,7 @@
   Created by Tommaso, 25/02/2024.
   Brief description: -
 */
+#include <EEPROM.h>
 
 #include "BMI323.h"
 #include "Global.h"
@@ -74,15 +75,15 @@ void BMI323::reset(){
   BMI323::writeRegister(BMI323_REG_CMD, BMI323_CMD_SOFT_RESET); // Write register value
   register_value = 0x00; // Reset register_value reset
 
-  delay(300);
+  delay(1000);
 }
 
 void BMI323::writeAccConfig(){
   register_value |= BMI323_ACC_OPERATION_HIGH_PERFORMANCE << 12;       //Define register value
-  register_value |= BMI323_ACC_AVERAGING_NONE << 8;    //Define register value
+  register_value |= BMI323_ACC_AVERAGING_4 << 8;    //Define register value
   register_value |= BMI323_ACC_BANDWIDTH_ODR_2 << 7;     //Define register value
   register_value |= BMI323_ACC_RANGE_4G << 4;     //Define register value
-  register_value |= BMI323_ODR_6_4KHZ;         //Define register value
+  register_value |= BMI323_ODR_3_2KHZ;         //Define register value
   BMI323::writeRegister(BMI323_REG_ACC_CONF, register_value);
   register_value = 0x00; // Reset register_value
 }
@@ -110,10 +111,10 @@ void BMI323::readAccConfig(){
 
 void BMI323::writeGyrConfig(){
   register_value |= BMI323_GYRO_OPERATION_HIGH_PERFORMANCE << 12;       //Define register value
-  register_value |= BMI323_GYRO_AVERAGING_NONE << 8;    //Define register value
+  register_value |= BMI323_GYRO_AVERAGING_4 << 8;    //Define register value
   register_value |= BMI323_GYRO_BANDWIDTH_ODR_2 << 7;     //Define register value
   register_value |= BMI323_GYRO_RANGE_500DPS << 4;     //Define register value
-  register_value |= BMI323_GYRO_ODR_6_4KHZ;         //Define register value
+  register_value |= BMI323_GYRO_ODR_3_2KHZ;         //Define register value
   BMI323::writeRegister(BMI323_REG_GYR_CONF, register_value);
   register_value = 0x00; // Reset register_value
 }
@@ -160,7 +161,9 @@ void BMI323::readDataRaw(){
 // Add public method implementations here
 void BMI323::begin(){
   BMI323::reset(); // Soft Reset
+  BMI323::readWhoAmI(); // A rising edge on CSB is needed before starting the SPI communicatio
   BMI323::readErrorReg(); // Check for errors
+
   BMI323::writeAccConfig(); // Write accelerometer configuration
   BMI323::writeGyrConfig(); // Write gyro configuration
 
@@ -168,9 +171,29 @@ void BMI323::begin(){
   BMI323::readAccConfig();
   BMI323::readGyrConfig();
 
-  // Perform calibration of offsets
-  BMI323::calibrateAcc();
-  BMI323::calibrateGyr();
+  // Initialize EEPROM with predefined size
+  if (!EEPROM.begin(EEPROM_SIZE)) {
+    Serial.println("Failed to initialize EEPROM");
+  }
+
+  // // Perform calibration of offsets
+  // BMI323::calibrateAcc();
+  // BMI323::calibrateGyr();
+
+  // Read data from EEPROM to initialize calibration values
+  EEPROM.get(VALUE_ADDR_GYR_0, gyro_offset[0]);
+  EEPROM.get(VALUE_ADDR_GYR_1, gyro_offset[1]);
+  EEPROM.get(VALUE_ADDR_GYR_2, gyro_offset[2]);
+  // Serial.printf("Gyroscope offset x-axis is: %f \n", gyro_offset[0]);
+  // Serial.printf("Gyroscope offset y-axis is: %f \n", gyro_offset[1]);
+  // Serial.printf("Gyroscope offset z-axis is: %f \n", gyro_offset[2]);
+
+  EEPROM.get(VALUE_ADDR_ACC_0, acc_offset[0]);
+  EEPROM.get(VALUE_ADDR_ACC_1, acc_offset[1]);
+  EEPROM.get(VALUE_ADDR_ACC_2, acc_offset[2]);
+  // Serial.printf("Accelerometer offset x-axis is: %f \n", acc_offset[0]);
+  // Serial.printf("Accelerometer offset y-axis is: %f \n", acc_offset[1]);
+  // Serial.printf("Accelerometer offset z-axis is: %f \n", acc_offset[2]);
 }
 
 void BMI323::readWhoAmI() {
@@ -190,8 +213,8 @@ void BMI323::readData(){
     BMI323::readDataRaw();
 
     // Update global pointer
-    memcpy(globalStructPtr->bmi323Data.accDataPrv, data, 3 * sizeof(float)); // Copy first 3 elements
-    memcpy(globalStructPtr->bmi323Data.gyroDataPrv, data + 3, 3 * sizeof(float)); // Copy last 3 elements
+    memcpy(globalStructPtr->bmi323DataPrv.accData, data, 3 * sizeof(float)); // Copy first 3 elements
+    memcpy(globalStructPtr->bmi323DataPrv.gyroData, data + 3, 3 * sizeof(float)); // Copy last 3 elements
 
     if (status_register[0] & 0x80){
       for (size_t i=0; i<3; i++){
@@ -233,7 +256,14 @@ void BMI323::calibrateAcc(){
       acc_offset[i] = -(float)tmp_data[i]/counter; // take average value
     }
     acc_offset[2] = acc_offset[2] + 9.8067; // Z-axis is subject to gravity
-    // Serial.printf("acc_offset[0]: %f, acc_offset[1]: %f, acc_offset[2]: %f \n",acc_offset[0],acc_offset[1],acc_offset[2]);
+
+    // Write data to EEPROM
+    EEPROM.put(VALUE_ADDR_ACC_0, acc_offset[0]);
+    EEPROM.put(VALUE_ADDR_ACC_1, acc_offset[1]);
+    EEPROM.put(VALUE_ADDR_ACC_2, acc_offset[2]);
+
+    // Commit changes to EEPROM
+    EEPROM.commit();
   }
   else {
     Serial.print("Running acc calibration again! Not enough samples.");
@@ -262,7 +292,13 @@ void BMI323::calibrateGyr(){
     for (size_t i=0; i<3; i++){
       gyro_offset[i] = -(float)tmp_data[i]/counter; // take average value
     }
-    // Serial.printf("gyro_offset[0]: %f, gyro_offset[1]: %f, gyro_offset[2]: %f \n",gyro_offset[0],gyro_offset[1],gyro_offset[2]);
+    // Write data to EEPROM
+    EEPROM.put(VALUE_ADDR_GYR_0, gyro_offset[0]);
+    EEPROM.put(VALUE_ADDR_GYR_1, gyro_offset[1]);
+    EEPROM.put(VALUE_ADDR_GYR_2, gyro_offset[2]);
+
+    // Commit changes to EEPROM
+    EEPROM.commit();
   }
   else {
     Serial.print("Running gyro calibration again! Not enough samples.");

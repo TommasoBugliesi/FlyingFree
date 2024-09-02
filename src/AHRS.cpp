@@ -23,16 +23,23 @@ AHRS::AHRS() {
     Y[i] = new float[1];
   }
 
+  // Initialize angDataFilt with zeros
+  for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < BUFFERSIZE; ++j) {
+          angDataFilt[i][j] = 0.0f;
+      }
+  }
+
   // Init values
   F[0][0] = 1.; F[0][1] = 0; F[0][2] = 0.; F[0][3] = 0.; 
   F[1][0] = 0.; F[1][1] = 1.; F[1][2] = 0.; F[1][3] = 0.;
   F[2][0] = 0.; F[2][1] = 0.; F[2][2] = 0.; F[2][3] = 0.; 
   F[3][0] = 0.; F[3][1] = 0.; F[3][2] = 0.; F[3][3] = 0.;
 
-  K[0][0] = 0.095; K[0][1] = 0.; K[0][2] = 0.; K[0][3] = 0.; 
-  K[1][0] = 0.; K[1][1] = 0.095; K[1][2] = 0.; K[1][3] = 0.; 
-  K[2][0] = 0.; K[2][1] = 0.; K[2][2] = 0.75; K[2][3] = 0.; 
-  K[3][0] = 0.; K[3][1] = 0.; K[3][2] = 0.; K[3][3] = 0.75;  
+  K[0][0] = 0.08; K[0][1] = 0.; K[0][2] = 0.; K[0][3] = 0.; 
+  K[1][0] = 0.; K[1][1] = 0.08; K[1][2] = 0.; K[1][3] = 0.; 
+  K[2][0] = 0.; K[2][1] = 0.; K[2][2] = 0.6; K[2][3] = 0.; 
+  K[3][0] = 0.; K[3][1] = 0.; K[3][2] = 0.; K[3][3] = 0.6;  
 
   X_11[0][0] = 0.; X_11[1][0] = 0.; X_11[2][0] = 0.; X_11[3][0] = 0.; 
   X_21[0][0] = 0.; X_21[1][0] = 0.; X_21[2][0] = 0.; X_21[3][0] = 0.; 
@@ -109,3 +116,36 @@ void AHRS::computeKalman(){
   globalStructPtr->ahrsData.angData[1] = angOut[0];
   globalStructPtr->ahrsData.angData[2] = angOut[2];
 }
+
+void AHRS::weightedAverageFilt(){
+
+  // Update angDataFilt
+  if (samples < BUFFERSIZE) {
+      angDataFilt[0][samples] = -angOut[1];
+      angDataFilt[1][samples] = angOut[0];
+      angDataFilt[2][samples] = angOut[2];
+      samples++;
+  } else {
+      // Buffer is full, remove the oldest sample
+      for (int i = 0; i < BUFFERSIZE - 1; ++i) {
+          angDataFilt[0][i] = angDataFilt[0][i + 1];
+          angDataFilt[1][i] = angDataFilt[1][i + 1];
+          angDataFilt[2][i] = angDataFilt[2][i + 1];
+      }
+      angDataFilt[0][BUFFERSIZE - 1] = -angOut[1];
+      angDataFilt[1][BUFFERSIZE - 1] = angOut[0];
+      angDataFilt[2][BUFFERSIZE - 1] = angOut[2];
+  }
+
+  if (samples>0) {
+    float sumRoll = 0, sumPitch = 0, sumYaw = 0;
+    for (int i = 0; i < samples; ++i) {
+        sumRoll += angDataFilt[0][i];
+        sumPitch += angDataFilt[1][i];
+        sumYaw += angDataFilt[2][i];
+    }
+    globalStructPtr->ahrsDataFilt.angData[0] = sumRoll / samples;
+    globalStructPtr->ahrsDataFilt.angData[1] = sumPitch / samples;
+    globalStructPtr->ahrsDataFilt.angData[2] = sumYaw / samples;
+  }
+} 

@@ -71,6 +71,7 @@ MotorControl::MotorControl() {
 
   for (int i = 0; i < 4; ++i) {
       throttle[i] = DSHOT_THROTTLE_MIN;
+      throttlePrv[i] = DSHOT_THROTTLE_MIN;
       throttleNoSat[i] = 0.0;
   }
 
@@ -95,72 +96,6 @@ void MotorControl::updateData(){
     xSemaphoreGive(globalMutex);
   }
 }
-
-void MotorControl::remoteCalibration(){
-  int arrSize = 50;
-  float tmp_J1x[arrSize];
-  float tmp_J1y[arrSize];
-  float tmp_J2x[arrSize];
-  float tmp_J2y[arrSize];
-  float value_J1x;
-  float value_J1y;
-  float value_J2x;
-  float value_J2y;
-  bool  B_calibrationDone = 0;
-  uint16_t counter;
-
-  Serial.print("Start remote calibration, do not touch joysticks\n");
-
-  // Start calibration
-  while (!B_calibrationDone){
-    
-    // Get data from remote controller and save it to local structure
-    updateData();
-
-    tmp_J1x[counter] = (float)remoteData.J1x_In;
-    tmp_J1y[counter] = (float)remoteData.J1y_In;
-    tmp_J2x[counter] = (float)remoteData.J2x_In;
-    tmp_J2y[counter] = (float)remoteData.J2y_In;
-    counter ++;
-
-    if (counter > arrSize-1){
-      for (int i = 0; i<arrSize; i++){
-        value_J1x += tmp_J1x[i];
-        value_J1y += tmp_J1y[i];
-        value_J2x += tmp_J2x[i];
-        value_J2y += tmp_J2y[i];
-      }
-      
-      // Take average value of samples
-      value_J1x /= (float)arrSize;
-      value_J1y /= (float)arrSize;
-      value_J2x /= (float)arrSize;
-      value_J2y /= (float)arrSize;
-
-      if ((value_J1x < 2250 & value_J1x > 1750) 
-        & (value_J1y < 2250 & value_J1y > 1750) 
-        & (value_J2x < 2250 & value_J2x > 1750) 
-        & (value_J2y < 2250 & value_J2y > 1750))
-        {
-          // TODO: update calibratio value 
-          remoteCal.J1x = value_J1x;
-          remoteCal.J1y = value_J1y;
-          remoteCal.J2x = value_J2x;
-          remoteCal.J2y = value_J2y;
-
-          // TODO: take into account also the max difference for each array value
-          B_calibrationDone = 1;
-        }
-
-      // Reset counter
-      counter = 0;
-    }
-    delay(10);
-  }
-
-  printf("remoteCal.J1x: %f, remoteCal.J1y: %f, remoteCal.J2x: %f, remoteCal.J2y: %f\n", remoteCal.J1x, remoteCal.J1y, remoteCal.J2x, remoteCal.J2y);
-  Serial.print("Calibration completed\n");
-  }
 
 void MotorControl::motorSaturation(){
   float tmp_max = 0;
@@ -272,8 +207,13 @@ void MotorControl::motorSaturation(){
   }
 }
 
-void MotorControl::PIDControl(){
-
+void MotorControl::motorFiltering(){
+  // TODO update to be time indipendent, define cutoff frequency instead _lowPasConst
+  // TODO move the function to work with throttleNoSat: logic with floating values
+  throttle[0] = throttlePrv[0] + _lowPasConst * (throttle[0] - throttlePrv[0]);
+  throttle[1] = throttlePrv[1] + _lowPasConst * (throttle[1] - throttlePrv[1]);
+  throttle[2] = throttlePrv[2] + _lowPasConst * (throttle[2] - throttlePrv[2]);
+  throttle[3] = throttlePrv[3] + _lowPasConst * (throttle[3] - throttlePrv[3]);
 }
 
 void MotorControl::motorControl(){
@@ -287,70 +227,91 @@ void MotorControl::motorControl(){
   if (remoteData.T4_In & !remoteData.T3_In) {
     // Some input directly affect the motor speed
     h          +=   MAP_UINT16((float)remoteData.P1_In   , 0, 0.7);
-    h          += -(MAP_UINT16((float)remoteData.J2y_In  , 0, 0.5) - 0.5*remoteCal.J2y/MAX_UINT16); 	
-    y          += -(MAP_UINT16((float)remoteData.J2x_In  , 0, 0.4) - 0.4*remoteCal.J2x/MAX_UINT16);  
-    _refRoll    =   MAP_UINT16((float)remoteData.J1x_In  , 0, 0.5) - 0.5*remoteCal.J1x/MAX_UINT16; 	
-    _refPitch   = -(MAP_UINT16((float)remoteData.J1y_In  , 0, 0.5) - 0.5*remoteCal.J1y/MAX_UINT16); 	
+    h          += -(MAP_UINT16((float)remoteData.J2y_In  , 0, 0.5) - 0.5*HALF_MAX_UINT16/MAX_UINT16); 	
+    y          += -(MAP_UINT16((float)remoteData.J2x_In  , 0, 0.4) - 0.4*HALF_MAX_UINT16/MAX_UINT16);  
+    _refRoll    =   MAP_UINT16((float)remoteData.J1x_In  , 0, 0.5) - 0.5*HALF_MAX_UINT16/MAX_UINT16; 	
+    _refPitch   = -(MAP_UINT16((float)remoteData.J1y_In  , 0, 0.5) - 0.5*HALF_MAX_UINT16/MAX_UINT16); 	
 
     // printf("_setpointRoll: %f, _setpointPitch: %f\n", _refRoll, _refPitch);
 
     // Get the current time
-    _currentTime = millis();
+    _currentTime = micros();
     
     // Calculate elapsed time
-    _elapsedTime = (float)(_currentTime - _lastTime)/1000.0;
-   
-    // Read the roll and pitch inputs (e.g., from an IMU sensor)
-    _inRoll = globalStructPtr->ahrsData.angData[0];  
-    _inPitch = globalStructPtr->ahrsData.angData[1]; 
+    _elapsedTime = (float)(_currentTime - _lastTime)/1000000.0;
 
-    // Compute roll PID output
-    float eRoll = _refRoll - _inRoll;
-    float PoutRoll = _KpRoll * eRoll;
+    if (_elapsedTime>0.0001 & !_pidFirst){
+      // Read the roll and pitch inputs (e.g., from an IMU sensor)
+      _inRoll = globalStructPtr->ahrsDataFilt.angData[0];  
+      _inPitch = globalStructPtr->ahrsDataFilt.angData[1]; 
 
-    _integRoll += eRoll * (_elapsedTime);
-    float IoutRoll = _KiRoll * _integRoll;
+      // Compute roll PID output
+      float eRoll = _refRoll - _inRoll;
+      float PoutRoll = _KpRoll * eRoll;
 
-    float derivativeRoll = (_inRoll - _inRollPrv) / (_elapsedTime);
-    float DoutRoll = -_KdRoll * derivativeRoll;
+      _integRoll += eRoll * (_elapsedTime);
+      float IoutRoll = _KiRoll * _integRoll;
 
-    _outRoll = PoutRoll + IoutRoll + DoutRoll;
+      float derivativeRoll = (_inRoll - _inRollPrv) / (_elapsedTime);
+      // float derivativeRoll = globalStructPtr->bmi323Data_lp1st.gyroData[0];
+      float DoutRoll = -_KdRoll * derivativeRoll;
 
-    // Compute pitch PID output
-    float ePitch = _refPitch - _inPitch;
-    float PoutPitch = _KpPitch * ePitch;
+      _outRoll = PoutRoll + IoutRoll + DoutRoll;
 
-    _integPitch += ePitch * (_elapsedTime);
-    float IoutPitch = _KiPitch * _integPitch;
+      // Compute pitch PID output
+      float ePitch = _refPitch - _inPitch;
+      float PoutPitch = _KpPitch * ePitch;
 
-    float derivativePitch = (_inPitch - _inPitchPrv) / (_elapsedTime);
-    float DoutPitch = -_KdPitch * derivativePitch;
+      _integPitch += ePitch * (_elapsedTime);
+      float IoutPitch = _KiPitch * _integPitch;
 
-    _outPitch = PoutPitch + IoutPitch + DoutPitch;
+      // float derivativePitch = (_inPitch - _inPitchPrv) / (_elapsedTime);
+      float derivativePitch = globalStructPtr->bmi323Data_lp1st.gyroData[1];
+      float DoutPitch = _KdPitch * derivativePitch;
 
-    // Apply the outputs (e.g., control motors)
-    p += _outPitch;
-    r += _outRoll;
+      _outPitch = PoutPitch + IoutPitch + DoutPitch;
+      
+      // Anti-windup: Adjust the integral term if output is saturated
+      if (_outPitch > 0.5) {
+          _outPitch = 0.5;
+          _integPitch -= ePitch * (_elapsedTime);  // Undo the integration step
+      } else if (_outPitch < -0.5) {
+          _outPitch = -0.5;
+          _integPitch -= ePitch * (_elapsedTime);  // Undo the integration step
+      }
 
-    // Save the current inputs for the next loop
-    _inRollPrv = globalStructPtr->ahrsData.angDataPrv[0];  
-    _inPitchPrv = globalStructPtr->ahrsData.angDataPrv[1]; 
+      // printf("%f %f %f \n", PoutPitch*10.0f, IoutPitch*10.0f, DoutPitch*10.0f);
 
-    // Update throttle
-    throttleNoSat[0] = h + r - p + y ;
-    throttleNoSat[1] = h - r - p - y ;
-    throttleNoSat[2] = h + r + p - y ;
-    throttleNoSat[3] = h - r + p + y ;
+      // Apply the outputs (e.g., control motors)
+      p += _outPitch;
+      r += _outRoll;
 
+      // Save the current inputs for the next loop
+      _inRollPrv = globalStructPtr->ahrsData.angDataPrv[0];  
+      _inPitchPrv = globalStructPtr->ahrsData.angDataPrv[1]; 
+
+      // Update throttle
+      throttleNoSat[0] = h + r - p + y ;
+      throttleNoSat[1] = h - r - p - y ;
+      throttleNoSat[2] = h + r + p - y ;
+      throttleNoSat[3] = h - r + p + y ;
+      _lastTime = micros();
+    }
+    else if (_pidFirst){
+      // Reset integral part of controller and first loop flag
+      _pidFirst = false;
+      _integPitch = 0;
+      _lastTime = micros();
+    }
     // Update the last times
-    _lastTime = millis();
+    
   }
   else if (remoteData.T3_In & !remoteData.T4_In) {
     h +=   MAP_UINT16((float)remoteData.P1_In   , 0, 0.7); 
-    r +=   MAP_UINT16((float)remoteData.J1x_In  , 0, 0.5) - 0.5*remoteCal.J1x/MAX_UINT16; 	 
-    p += -(MAP_UINT16((float)remoteData.J1y_In  , 0, 0.5) - 0.5*remoteCal.J1y/MAX_UINT16); 	 
-    y += -(MAP_UINT16((float)remoteData.J2x_In  , 0, 0.4) - 0.4*remoteCal.J2x/MAX_UINT16); 	 
-    h += -(MAP_UINT16((float)remoteData.J2y_In  , 0, 0.5) - 0.5*remoteCal.J2y/MAX_UINT16); 	
+    r +=   MAP_UINT16((float)remoteData.J1x_In  , 0, 0.5) - 0.5*HALF_MAX_UINT16/MAX_UINT16; 	 
+    p += -(MAP_UINT16((float)remoteData.J1y_In  , 0, 0.5) - 0.5*HALF_MAX_UINT16/MAX_UINT16); 	 
+    y += -(MAP_UINT16((float)remoteData.J2x_In  , 0, 0.4) - 0.4*HALF_MAX_UINT16/MAX_UINT16); 	 
+    h += -(MAP_UINT16((float)remoteData.J2y_In  , 0, 0.5) - 0.5*HALF_MAX_UINT16/MAX_UINT16); 	
 
     // Update throttle
     throttleNoSat[0] = h + r - p + y ;
@@ -364,6 +325,10 @@ void MotorControl::motorControl(){
     throttleNoSat[1] = 0.0;
     throttleNoSat[2] = 0.0;
     throttleNoSat[3] = 0.0;
+
+    // Reset integral part of controller and first loop flag
+    _pidFirst = true;
+    _integPitch = 0;
   }
 
   // printf("h: %f, r: %f, p: %f, y: %f\n", h, r, p, y);
@@ -385,6 +350,11 @@ void MotorControl::motorControl(){
       }
       DShotSendThrottle(throttle);
       B_resetThrottle = 1;
+
+      throttlePrv[0]=throttle[0];
+      throttlePrv[1]=throttle[1];
+      throttlePrv[2]=throttle[2];
+      throttlePrv[3]=throttle[3];
     }
   }
 
@@ -406,6 +376,10 @@ void MotorControl::motorControl(){
       // Send 0 throttle at startup with 1kHz freqeuncy then rest
       if (U_armCounter<50){
         DShotSendThrottle(throttle);
+        throttlePrv[0]=throttle[0];
+        throttlePrv[1]=throttle[1];
+        throttlePrv[2]=throttle[2];
+        throttlePrv[3]=throttle[3];
       }
       U_armCounter ++;
     }
@@ -433,11 +407,20 @@ void MotorControl::motorControl(){
 
     // If motors resetted normal operation for motors apply throttle
     motorSaturation();
+    // motorFiltering();
+    // printf("throttle[0]: %d, throttle[1]: %d, throttle[2]: %d, throttle[3]: %d\n", throttle[0], throttle[1], throttle[2], throttle[3]);
+
     DShotSendThrottle(throttle);
+
+    throttlePrv[0]=throttle[0];
+    throttlePrv[1]=throttle[1];
+    throttlePrv[2]=throttle[2];
+    throttlePrv[3]=throttle[3];
 
     // Throttle is no more zero, reset 0 value when T1!=1
     B_resetThrottle = 0;
   }
+  // printf("throttle[0]: %d, throttle[1]: %d, throttle[2]: %d, throttle[3]: %d\n", throttle[0], throttle[1], throttle[2], throttle[3]);
 
   // Reset every time throttle values
   h = 0.0;  r = 0.0;  p = 0.0;  y = 0.0;
@@ -450,6 +433,23 @@ void MotorControl::begin(){
   
   DShotInit(pwmOut,rmtChannels); 
   DShotReset();
+
+  remoteData.T1_In = 0;
+  remoteData.T2_In = 0;
+  remoteData.T3_In = 0;
+  remoteData.T4_In = 0;
+  remoteData.B1_In = 0;
+  remoteData.B2_In = 0;
+  remoteData.Bx_In = 0;
+  remoteData.By_In = 0;
+  remoteData.Bz_In = 0;
+  remoteData.Bw_In = 0;
+  remoteData.J1x_In = HALF_MAX_UINT16;
+  remoteData.J1y_In = HALF_MAX_UINT16;
+  remoteData.J2x_In = HALF_MAX_UINT16;
+  remoteData.J2y_In = HALF_MAX_UINT16;
+  remoteData.P1_In = 0;
+  remoteData.P2_In = 0;
 }
 
 esp_err_t MotorControl::DShotInit(gpio_num_t *gpio, rmt_channel_t *rmtChannel, unsigned long frequency, uint8_t rmtdivider){
@@ -484,10 +484,6 @@ esp_err_t MotorControl::DShotInit(gpio_num_t *gpio, rmt_channel_t *rmtChannel, u
     DSHOT_ERROR_CHECK(rmt_config(&config[h]));               // Check for data validity
     out[h] = rmt_driver_install(rmtChannel[h], 0, 0);
   }
-
-  // Get input from remote to save mean joysticks position
-  memset(&remoteCal, 0, sizeof(remoteCal));
-  remoteCalibration();
 
   return *out;
 }
