@@ -213,8 +213,8 @@ void BMI323::readData(){
     BMI323::readDataRaw();
 
     // Update global pointer
-    memcpy(globalStructPtr->bmi323DataPrv.accData, data, 3 * sizeof(float)); // Copy first 3 elements
-    memcpy(globalStructPtr->bmi323DataPrv.gyroData, data + 3, 3 * sizeof(float)); // Copy last 3 elements
+    // memcpy(globalStructPtr->bmi323DataPrv.accData, data, 3 * sizeof(float)); // Copy first 3 elements
+    // memcpy(globalStructPtr->bmi323DataPrv.gyroData, data + 3, 3 * sizeof(float)); // Copy last 3 elements
 
     if (status_register[0] & 0x80){
       for (size_t i=0; i<3; i++){

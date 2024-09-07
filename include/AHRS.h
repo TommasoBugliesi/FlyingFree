@@ -15,6 +15,7 @@
 
 class AHRS {
   private:
+    // Kalman filter
     float** F = new float*[AHRS_ROWS];
     float** K = new float*[AHRS_ROWS];
 
@@ -24,12 +25,23 @@ class AHRS {
     float** Y = new float*[AHRS_ROWS];
     float** Z = new float*[AHRS_ROWS];
 
-    float gyroData[3];
-    float accData[3];
-    float angData[3];  // Angle in rad Roll and Pitch from sensors
-    float angOut[3];   // Angle output in rad
+    float angDataKalman[3] = {0.0f, 0.0f, 0.0f};  // Angle in rad Roll and Pitch from sensors
+    float angOutKalman[3] = {0.0f, 0.0f, 0.0f};   // Angle output in rad
+
+    // Mahony filter
+    float qMahony[4] = {1.0f, 0.0f, 0.0f, 0.0f}; // Initial quaternion: [w, x, y, z]
+    float kiMahony = 0.01f; // Integral gain (tune this value)
+    float kpMahony = 2.0f; // Prop gain (tune this value)
+    float integraleMahony[3] = {0.0f, 0.0f, 0.0f};
+
+    float angOutMahony[3] = {0.0f, 0.0f, 0.0f};   // Angle output in rad
+    
+    // Temporary variables inside each algorithm 
+    float gyroData[3] = {0.0f, 0.0f, 0.0f};
+    float accData[3] = {0.0f, 0.0f, 0.0f};
     float dt;
 
+    // Filter
     int samples = 0;
     float angDataFilt[3][BUFFERSIZE];
 
@@ -79,13 +91,42 @@ class AHRS {
      *
      * Note: Adjust matrices (Fₖ, Bₖ, Hₖ, Qₖ, Rₖ) based on the characteristics of the specific system being modeled.
      */
-    void computeKalman();
+    void computeKalman(float *p_acc, float *p_gyro);
 
-    // Perform a weighted average of the input angles to reduce angle deviation
+    /**
+     * @brief Mahony filter for computing roll, pitch, and yaw using accelerometer and gyroscope data. 
+     * The Mahony filter is a sensor fusion algorithm that combines accelerometer and gyroscope data to estimate orientation.
+     * It leverages proportional and integral feedback mechanisms to correct for gyroscope drift and improve accuracy.
+     *
+     * Algorithm Overview:
+     * ------------------------------
+     * 1. Normalize accelerometer data:
+     *    The accelerometer data is first normalized to remove any magnitude effects and focus on the direction.
+     * 
+     * 2. Compute estimated gravity direction from quaternion:
+     *    The quaternion is used to calculate the expected direction of gravity in the sensor frame.
+     *
+     * 3. Compute the error between measured and estimated gravity:
+     *    The error is computed by taking the cross product between the measured gravity (from the accelerometer) and the estimated gravity.
+     *
+     * 4. Apply proportional and integral feedback:
+     *    Proportional feedback corrects for the orientation error, while integral feedback helps correct gyroscope bias over time.
+     * 
+     * 5. Update quaternion:
+     *    The quaternion is updated by integrating the corrected gyroscope data over time, which represents the rate of change of orientation.
+     *
+     * 6. Normalize quaternion:
+     *    The quaternion is normalized after each update step to maintain stability and avoid numerical drift.
+     *
+     */
+    void computeMahony(float *p_acc, float *p_gyro);
+
+    // Perform a weighted average of the input angles (to reduce angle deviation
     void weightedAverageFilt();
 
   private:
     // Add private variables and methods here
+    void quat2euler(float *q, float *out);
 };
 
 #endif // AHRS_h

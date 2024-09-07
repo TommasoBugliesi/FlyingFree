@@ -19,4 +19,15 @@
  */
 void lp_1st(float *p_data, size_t size, float w_c, unsigned long dt, float *p_out); 
 
+/**
+ * @param p_data : input data time k+1
+ * @param p_prv : input data time k
+ * @param size : array size
+ * @param w_c : cutoff frequency in Hz
+ * @param dt : delta time between subsequent samples in us
+ * @param p_out : pointer to output array
+ * @brief The function applies to pointer to arrays with dimension of size. The filter is a high pass first order filter 
+ */
+void hp_1st(float *p_data, float *p_prv, size_t size, float w_c, unsigned long dt, float *p_out);
+
 #endif // Filters_h

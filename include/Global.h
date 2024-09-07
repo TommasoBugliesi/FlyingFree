@@ -49,15 +49,29 @@ struct MotorStruct {
 };
 
 struct GlobalStruct {
+    // Sensor data and filter sensor data
     BMI323Struct bmi323Data;
-    BMI323Struct bmi323DataPrv;
     BMI323Struct bmi323Data_lp1st;
-    AHRSStruct   ahrsData;
+    BMI323Struct bmi323Data_hp1st;
+
+    // Sensor fusion algorithms
+    AHRSStruct   ahrsDataKalman;
+    AHRSStruct   ahrsDataMahony;
+    AHRSStruct   ahrsDataMagdwick;
+
+    // To move to filters
     AHRSStruct   ahrsDataFilt;
+
+    // Input from remote
     GPIOStruct   gpioData;
+
+    // Motor control calibration 
     MotorStruct  motorData;
-    float task1Frequency;
-    float task1Timing;  // us
+
+    // Timing 
+    float ahrsTiming;  // us
+    float motorTiming;  // us
+    float dataTiming;  // us
 };
 
 // Declare the global pointer to GlobalData

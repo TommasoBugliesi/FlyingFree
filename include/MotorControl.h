@@ -67,9 +67,6 @@ enum class DSHOT_CMD : uint16_t
 class MotorControl {
   GPIOStruct remoteData;
 
-  float _inAngles[3];   
-  float _inAnglesPrv[3];   
-
   // PID 
   bool _pidFirst = true;
   float _KpPitch = 0.0;
@@ -106,7 +103,7 @@ class MotorControl {
     ~MotorControl(); // Destructor
 
     void begin();
-    void motorControl();
+    void motorControl(AHRSStruct input);
     // Add public methods here
 
   private:
@@ -140,7 +137,6 @@ class MotorControl {
     // Add private variables and methods here
     void updateData();
     void motorSaturation();
-    void motorFiltering();
 
     /*DShot functions and protocol definition*/
     esp_err_t DShotInit(gpio_num_t *gpio, rmt_channel_t *rmtChannel, unsigned long frequency = 600000UL, uint8_t rmtdivider = 3);

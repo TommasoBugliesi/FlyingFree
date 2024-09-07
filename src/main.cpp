@@ -38,6 +38,7 @@
 #include "ESPNOW.h"
 #include "Global.h"
 #include "MotorControl.h"
+#include "DataLogging.h"
 
 // Declare pointers to SPIClass objects
 SPIClass *hspi = new SPIClass(HSPI);
@@ -50,7 +51,8 @@ AHRS ahrs;
 ESPNOW espnow;
 MotorControl motor;
 
-unsigned long ahrsLast, ElapsedTime, motorLast;
+unsigned long ahrsLast, motorLast, dataLast;
+unsigned long dt;
 
 void setup() {
   // Initialize Serial communication
@@ -66,6 +68,7 @@ void setup() {
 
   // Init global structure
   initGlobal();
+  initUart();
 
   // Initialize HSPI/VSPI
   hspi->begin();  // CLK, MISO, MOSI, CS for HSPI
@@ -83,19 +86,39 @@ void setup() {
 void loop() { 
   if ((micros()-ahrsLast)> 1000){
     bmi323.readData();
-    lp_1st(globalStructPtr->bmi323Data.gyroData, 3, 20, ElapsedTime, globalStructPtr->bmi323Data_lp1st.gyroData);
-    ahrs.computeKalman();
-    ahrs.weightedAverageFilt();
+    dt = micros()-ahrsLast;
+    globalStructPtr-> ahrsTiming = (float)(dt);
 
-    ElapsedTime = micros() - ahrsLast;
+    // lp_1st(globalStructPtr->bmi323Data.gyroData, 3, 100, dt, globalStructPtr->bmi323Data_lp1st.gyroData);
+    // lp_1st(globalStructPtr->bmi323Data.accData, 3, 50, dt, globalStructPtr->bmi323Data_lp1st.accData);
+    ahrs.computeKalman(globalStructPtr->bmi323Data.accData, globalStructPtr->bmi323Data.gyroData);
+    ahrs.computeMahony(globalStructPtr->bmi323Data.accData, globalStructPtr->bmi323Data.gyroData);
+    // ahrs.weightedAverageFilt();
+
+    // Update task time
     ahrsLast = micros();
-    globalStructPtr-> task1Timing = (float)(ElapsedTime);
-    printf("Task1 operations time %f: \n", globalStructPtr-> task1Timing);
   }
 
   if ((micros()-motorLast)> 2500){
-    motor.motorControl();
+    dt = micros()-motorLast;
+    globalStructPtr-> motorTiming = (float)(dt);
+
+    // Motor control algorithm
+    motor.motorControl(globalStructPtr->ahrsDataMahony);
+
+    // Update task time
     motorLast = micros();
+  }
+
+  if ((micros()-dataLast)> 2000){  
+    dt = micros()-dataLast;
+    globalStructPtr-> motorTiming = (float)(dt);
+
+    // Send data through UART
+    sendUart();
+
+    // Update task time
+    dataLast = micros();
   }
 
 }

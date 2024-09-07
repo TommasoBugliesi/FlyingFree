@@ -85,8 +85,6 @@ MotorControl::~MotorControl() {
 void MotorControl::updateData(){
   if (xSemaphoreTake(globalMutex, portMAX_DELAY) == pdTRUE) {
     memcpy(&remoteData, &(globalStructPtr->gpioData), sizeof(remoteData));
-    memcpy(_inAngles, globalStructPtr->ahrsData.angData, sizeof(_inAngles));
-    memcpy(_inAnglesPrv, globalStructPtr->ahrsData.angDataPrv, sizeof(_inAnglesPrv));
     _KpPitch = globalStructPtr->motorData.KpPitch;
     _KiPitch = globalStructPtr->motorData.KiPitch;
     _KdPitch = globalStructPtr->motorData.KdPitch;
@@ -207,16 +205,7 @@ void MotorControl::motorSaturation(){
   }
 }
 
-void MotorControl::motorFiltering(){
-  // TODO update to be time indipendent, define cutoff frequency instead _lowPasConst
-  // TODO move the function to work with throttleNoSat: logic with floating values
-  throttle[0] = throttlePrv[0] + _lowPasConst * (throttle[0] - throttlePrv[0]);
-  throttle[1] = throttlePrv[1] + _lowPasConst * (throttle[1] - throttlePrv[1]);
-  throttle[2] = throttlePrv[2] + _lowPasConst * (throttle[2] - throttlePrv[2]);
-  throttle[3] = throttlePrv[3] + _lowPasConst * (throttle[3] - throttlePrv[3]);
-}
-
-void MotorControl::motorControl(){
+void MotorControl::motorControl(AHRSStruct input){
   // Get data from remote controller and save it to local structure
   updateData();
 
@@ -242,8 +231,8 @@ void MotorControl::motorControl(){
 
     if (_elapsedTime>0.0001 & !_pidFirst){
       // Read the roll and pitch inputs (e.g., from an IMU sensor)
-      _inRoll = globalStructPtr->ahrsDataFilt.angData[0];  
-      _inPitch = globalStructPtr->ahrsDataFilt.angData[1]; 
+      _inRoll = input.angData[0];  
+      _inPitch = input.angData[1]; 
 
       // Compute roll PID output
       float eRoll = _refRoll - _inRoll;
@@ -265,8 +254,8 @@ void MotorControl::motorControl(){
       _integPitch += ePitch * (_elapsedTime);
       float IoutPitch = _KiPitch * _integPitch;
 
-      // float derivativePitch = (_inPitch - _inPitchPrv) / (_elapsedTime);
-      float derivativePitch = globalStructPtr->bmi323Data_lp1st.gyroData[1];
+      float derivativePitch = (_inPitch - _inPitchPrv) / (_elapsedTime);
+      // float derivativePitch = globalStructPtr->bmi323Data_lp1st.gyroData[1];
       float DoutPitch = _KdPitch * derivativePitch;
 
       _outPitch = PoutPitch + IoutPitch + DoutPitch;
@@ -287,8 +276,8 @@ void MotorControl::motorControl(){
       r += _outRoll;
 
       // Save the current inputs for the next loop
-      _inRollPrv = globalStructPtr->ahrsData.angDataPrv[0];  
-      _inPitchPrv = globalStructPtr->ahrsData.angDataPrv[1]; 
+      _inRollPrv = input.angDataPrv[0];  
+      _inPitchPrv = input.angDataPrv[1]; 
 
       // Update throttle
       throttleNoSat[0] = h + r - p + y ;
@@ -407,7 +396,6 @@ void MotorControl::motorControl(){
 
     // If motors resetted normal operation for motors apply throttle
     motorSaturation();
-    // motorFiltering();
     // printf("throttle[0]: %d, throttle[1]: %d, throttle[2]: %d, throttle[3]: %d\n", throttle[0], throttle[1], throttle[2], throttle[3]);
 
     DShotSendThrottle(throttle);
